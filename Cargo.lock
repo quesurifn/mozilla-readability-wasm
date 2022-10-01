@@ -252,6 +252,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
 
 [[package]]
+name = "mozilla-readability"
+version = "0.1.1"
+dependencies = [
+ "html5ever",
+ "kuchiki",
+ "lazy_static",
+ "log",
+ "markup5ever",
+ "regex",
+ "url",
+]
+
+[[package]]
 name = "new_debug_unreachable"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -486,19 +499,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "16abd0c1b639e9eb4d7c50c0b8100b0d0f849be2349829c740fe8e6eb4816429"
 dependencies = [
  "rand_core 0.5.1",
-]
-
-[[package]]
-name = "readability"
-version = "0.1.0"
-dependencies = [
- "html5ever",
- "kuchiki",
- "lazy_static",
- "log",
- "markup5ever",
- "regex",
- "url",
 ]
 
 [[package]]

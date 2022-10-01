@@ -1,9 +1,24 @@
 [package]
-name = "readability"
-version = "0.1.0"
+name = "mozilla-readability"
+version = "0.1.1"
 edition = "2021"
+authors = ["Kyle Fahey <kyle.c.r.fahey@gmail.com>"]
+description = "Mozilla Readability in Rust"
+license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+
+[lib]
+crate-type = ["cdylib"]
+bench = false
+path = "src/lib.rs" 
+
+[profile.dev]
+opt-level = 0
+
+[profile.release]
+opt-level = 3
 
 [dependencies]
 html5ever = "0.25.1"
