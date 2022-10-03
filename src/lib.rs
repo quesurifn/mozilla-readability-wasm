@@ -1,4 +1,3 @@
-use crate::errors::ParserError;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::str::FromStr;
 use html5ever::{LocalName, Namespace, QualName};
@@ -9,6 +8,9 @@ use kuchiki::{
 };
 use log::info;
 use url::Url;
+
+use wasm_bindgen::prelude::*;
+use serde::{Serialize, Deserialize};
 
 
 const DEFAULT_CHAR_THRESHOLD: usize = 500;
@@ -51,23 +53,29 @@ const DEPRECATED_SIZE_ATTRIBUTE_ELEMS: [&str; 5] = ["table", "th", "td", "hr", "
 pub mod regexes;
 pub mod errors;
 
+
+#[derive(Debug, Clone, PartialEq)]
+#[wasm_bindgen(getter_with_clone)]
 pub struct Readability {
+    pub metadata: MetaData,
     root_node: NodeRef,
     byline: Option<String>,
     article_title: String,
-    pub article_node: Option<NodeRef>,
+    article_node: Option<NodeRef>,
     article_dir: Option<String>,
     flags: u32,
-    pub metadata: MetaData,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 struct SizeInfo {
     rows: usize,
     columns: usize,
 }
 
+
+#[wasm_bindgen]
 impl Readability {
+    #[wasm_bindgen(constructor)]
     pub fn new(html_str: &str) -> Self {
         Self {
             root_node: kuchiki::parse_html().one(html_str),
@@ -79,7 +87,7 @@ impl Readability {
             metadata: MetaData::new(),
         }
     }
-    pub fn parse(&mut self, url: &str) -> Result<(), errors::ParserError> {
+    pub fn parse(&mut self, url: &str) -> Result<MetaData, JsValue> {
         self.unwrap_no_script_tags();
         self.remove_scripts();
         self.prep_document();
@@ -87,8 +95,11 @@ impl Readability {
         self.article_title = self.metadata.title.clone();
         self.grab_article()?;
         self.post_process_content(url);
-        Ok(())
+
+        self.metadata.article_html = self.article_node.as_ref().unwrap().to_string();
+        Ok(self.metadata.clone())
     }
+
 
     /// Recursively check if node is image, or if node contains exactly only one image
     /// whether as a direct child or as its descendants.
@@ -1600,14 +1611,14 @@ impl Readability {
 
     /// Using a variety of metrics (content score, classname, element types), find the content that is most likely to be the stuff
     /// a user wants to read. Then return it wrapped up in a div.
-    fn grab_article(&mut self) -> Result<(), ParserError> {
+    fn grab_article(&mut self) -> Result<(), js_sys::Error> {
         info!("Grabbing article {:?}", self.metadata.title);
         // var doc = this._doc;
         // var isPaging = (page !== null ? true: false);
         // page = page ? page : this._doc.body;
         let page = self.root_node.select_first("body");
         if page.is_err() {
-            return Err(ParserError::new("Document has no <body>".into()).into());
+            return Err(js_sys::Error::new("No <body> found in document"));
         }
         let page = page.unwrap();
         let mut attempts: Vec<ExtractAttempt> = Vec::new();
@@ -2095,10 +2106,7 @@ impl Readability {
                     attempts.push(ExtractAttempt::new(article_content.clone(), text_length));
                     attempts.sort_by(|a, b| b.length.partial_cmp(&a.length).unwrap());
                     if attempts.first().as_ref().unwrap().length == 0 {
-                        return Err(ParserError::new(
-                            "Unable to extract content".into(),
-                        )
-                        .into());
+                        return Err(js_sys::Error::new("Unable to extract content").into());
                     }
                     article_content = attempts[0].article.clone();
                     parse_successful = true;
@@ -2144,30 +2152,36 @@ impl ExtractAttempt {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[wasm_bindgen(getter_with_clone)]
 pub struct MetaData {
     byline: Option<String>,
     excerpt: Option<String>,
     site_name: Option<String>,
     title: String,
+    article_html: String,
 }
 
+#[wasm_bindgen]
 impl MetaData {
+    #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         MetaData {
             byline: None,
             excerpt: None,
             site_name: None,
             title: "".into(),
+            article_html: "".into(),
         }
     }
 
-    pub fn title(&self) -> &str {
-        &self.title
+    pub fn title(&self) -> String {
+        self.title.clone()
     }
 
-    pub fn byline(&self) -> Option<&String> {
-        self.byline.as_ref()
+
+    pub fn byline(&self) -> Option<String> {
+        self.byline.clone()
     }
 }
 
@@ -4039,4 +4053,35 @@ characters. For that reason, this <p> tag could not be a byline because it's too
         assert_eq!(false, doc.flag_is_active(FLAG_WEIGHT_CLASSES));
         assert_eq!(true, doc.flag_is_active(FLAG_STRIP_UNLIKELYS));
     }
+
+    #[test]
+    fn test_remove_final_result() {
+        let html_str = r"
+        <!DOCTYPE html>
+        <html>
+            <body>
+                <div>
+                 <h1>Test Article</h1>
+                 <article>
+                    <p>Test Article</p>
+                 </article>
+                </div>
+            </body>
+        </html>
+        ";
+        let mut doc = Readability::new(html_str);
+        let result = doc.parse("https://test.example.com/post/1");
+        assert_eq!(result.unwrap().article_html, r#"
+        <div>
+            <h1>Test Article</h1>
+                <article>
+            <p>Test Article</p>
+                </article>
+       </div>
+        "#);
+    
+    }
+
+
+
 }
