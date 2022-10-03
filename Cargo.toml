@@ -5,7 +5,7 @@ edition = "2021"
 authors = ["Kyle Fahey <kyle.c.r.fahey@gmail.com>"]
 description = "Mozilla Readability in Rust"
 keywords = ["mozilla", "readability", "html", "content extraction"]
-repository = ""
+repository = "https://github.com/quesurifn/mozilla-readability-wasm"
 license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
