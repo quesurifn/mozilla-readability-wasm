@@ -1,3 +1,4 @@
+extern crate wee_alloc;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::str::FromStr;
 use html5ever::{LocalName, Namespace, QualName};
@@ -12,6 +13,9 @@ use url::Url;
 use wasm_bindgen::prelude::*;
 use serde::{Serialize, Deserialize};
 
+// Use `wee_alloc` as the global allocator.
+#[global_allocator]
+static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 const DEFAULT_CHAR_THRESHOLD: usize = 500;
 const FLAG_STRIP_UNLIKELYS: u32 = 0x1;
@@ -55,9 +59,9 @@ pub mod errors;
 
 
 #[derive(Debug, Clone, PartialEq)]
-#[wasm_bindgen(getter_with_clone)]
+#[wasm_bindgen]
 pub struct Readability {
-    pub metadata: MetaData,
+    metadata: MetaData,
     root_node: NodeRef,
     byline: Option<String>,
     article_title: String,
@@ -87,7 +91,7 @@ impl Readability {
             metadata: MetaData::new(),
         }
     }
-    pub fn parse(&mut self, url: &str) -> Result<MetaData, JsValue> {
+    pub fn parse(&mut self, url: &str) -> Result<JsValue, JsValue> {
         self.unwrap_no_script_tags();
         self.remove_scripts();
         self.prep_document();
@@ -95,9 +99,9 @@ impl Readability {
         self.article_title = self.metadata.title.clone();
         self.grab_article()?;
         self.post_process_content(url);
+        self.metadata.article_html = self.article_node.as_ref().unwrap().to_string().replace("\r", "").replace("\n", "").replace("  ", "");
 
-        self.metadata.article_html = self.article_node.as_ref().unwrap().to_string();
-        Ok(self.metadata.clone())
+        Ok(serde_wasm_bindgen::to_value(&self.metadata.clone())?)
     }
 
 
@@ -2153,7 +2157,7 @@ impl ExtractAttempt {
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-#[wasm_bindgen(getter_with_clone)]
+#[wasm_bindgen]
 pub struct MetaData {
     byline: Option<String>,
     excerpt: Option<String>,
@@ -2173,15 +2177,6 @@ impl MetaData {
             title: "".into(),
             article_html: "".into(),
         }
-    }
-
-    pub fn title(&self) -> String {
-        self.title.clone()
-    }
-
-
-    pub fn byline(&self) -> Option<String> {
-        self.byline.clone()
     }
 }
 
@@ -4053,35 +4048,4 @@ characters. For that reason, this <p> tag could not be a byline because it's too
         assert_eq!(false, doc.flag_is_active(FLAG_WEIGHT_CLASSES));
         assert_eq!(true, doc.flag_is_active(FLAG_STRIP_UNLIKELYS));
     }
-
-    #[test]
-    fn test_remove_final_result() {
-        let html_str = r"
-        <!DOCTYPE html>
-        <html>
-            <body>
-                <div>
-                 <h1>Test Article</h1>
-                 <article>
-                    <p>Test Article</p>
-                 </article>
-                </div>
-            </body>
-        </html>
-        ";
-        let mut doc = Readability::new(html_str);
-        let result = doc.parse("https://test.example.com/post/1");
-        assert_eq!(result.unwrap().article_html, r#"
-        <div>
-            <h1>Test Article</h1>
-                <article>
-            <p>Test Article</p>
-                </article>
-       </div>
-        "#);
-    
-    }
-
-
-
 }
