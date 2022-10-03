@@ -1,6 +1,6 @@
 [package]
 name = "mozilla-readability"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["Kyle Fahey <kyle.c.r.fahey@gmail.com>"]
 description = "Mozilla Readability in Rust"
